@@ -1,5 +1,6 @@
 import os
 import aiohttp
+from aiohttp import web
 import asyncio
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
@@ -39,7 +40,6 @@ STARS_KEYBOARD = InlineKeyboardMarkup(
     ]
 )
 
-# أزرار الاشتراك بأسماء القنوات
 def get_subscription_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -184,10 +184,27 @@ async def download_tiktok(message: Message):
         log.error(f"Download error: {e}")
         await status.edit_text("❌ حدث خطأ أثناء التحميل.")
 
+# --- جزء السيرفر الوهمي لإرضاء منصة Render ---
+async def handle_ping(request):
+    return web.Response(text="Bot is running 24/7!")
+
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get("/", handle_ping)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    log.info(f"🌐 Web server started on port {port}")
+
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
     print("🚀 البوت شغال الآن!")
-    await dp.start_polling(bot)
+    await asyncio.gather(
+        start_web_server(),
+        dp.start_polling(bot)
+    )
 
 if __name__ == "__main__":
     asyncio.run(main())
