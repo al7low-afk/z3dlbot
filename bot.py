@@ -1,4 +1,4 @@
-imimport os
+import os
 import aiohttp
 from aiohttp import web
 import asyncio
@@ -139,12 +139,15 @@ async def successful_payment_handler(message: Message):
 
 @dp.message(F.text)
 async def download_tiktok(message: Message):
+    if not message.text or not message.from_user:
+        return
+        
     if not await is_subscribed(message.from_user.id):
         sub_text = "❌ **عذراً!** لا يمكنك التحميل قبل الاشتراك في القنوات:"
         await message.answer(sub_text, reply_markup=get_subscription_keyboard(), parse_mode=ParseMode.MARKDOWN)
         return
 
-    url = (message.text or "").strip()
+    url = message.text.strip()
     if url.startswith("/"):
         return
     if "tiktok.com" not in url.lower():
@@ -163,7 +166,6 @@ async def download_tiktok(message: Message):
             images = []
             music_url = ""
 
-            # المحاولة الأولى عبر TikWM
             async with session.post("https://www.tikwm.com/api/", data={"url": url}, timeout=20) as resp:
                 data = await resp.json(content_type=None)
                 if data and data.get("code") == 0 and data.get("data"):
@@ -173,7 +175,6 @@ async def download_tiktok(message: Message):
                     video_url = item.get("play") or item.get("wmplay") or ""
                     music_url = item.get("music") or ""
 
-            # المحاولة الاحتياطية عبر Cobalt API لو فشل الأول
             if not video_url and not images:
                 async with session.post(
                     "https://api.cobalt.tools/api/json",
@@ -186,9 +187,9 @@ async def download_tiktok(message: Message):
                         video_url = c_data.get("url") or (c_data.get("picker", [{}])[0].get("url") if c_data.get("picker") else "")
 
             if video_url or images:
-                if video_url.startswith("/"):
+                if video_url and video_url.startswith("/"):
                     video_url = f"https://www.tikwm.com{video_url}"
-                if music_url.startswith("/"):
+                if music_url and music_url.startswith("/"):
                     music_url = f"https://www.tikwm.com{music_url}"
 
                 if images:
@@ -240,5 +241,4 @@ async def main():
     )
 
 if __name__ == "__main__":
-    asyncio.run(main())__main__":
     asyncio.run(main())
