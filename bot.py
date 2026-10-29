@@ -2,7 +2,6 @@ import os
 import aiohttp
 from aiohttp import web
 import asyncio
-import yt_dlp
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -41,6 +40,7 @@ STARS_KEYBOARD = InlineKeyboardMarkup(
     ]
 )
 
+# أزرار الاشتراك بأسماء القنوات
 def get_subscription_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -64,11 +64,11 @@ async def is_subscribed(user_id: int) -> bool:
 def get_welcome_text():
     return (
         "أهلاً بك في بوت تحميل تيك توك 🚀\n\n"
-        "🤖 <b>مميزات البوت:</b>\n"
+        "🤖 **مميزات البوت:**\n"
         "• تحميل المقاطع والصور بدون علامة مائية.\n"
         "• جلب الوصف (الكابشن) الأصلي للفيديو.\n"
-        "• سرعة فائقة في التحميل (مدعوم بـ 3 سيرفرات).\n\n"
-        "🔗 <b>أرسل أي رابط تيك توك الآن للبدء!</b>"
+        "• سرعة فائقة في التحميل.\n\n"
+        "🔗 **أرسل أي رابط تيك توك الآن للبدء!**"
     )
 
 @dp.message(Command("start"))
@@ -76,18 +76,18 @@ async def start_cmd(message: Message):
     if not message.from_user:
         return
     if not await is_subscribed(message.from_user.id):
-        sub_text = "❌ <b>عذراً عزيزي!</b>\nلا يمكنك استخدام البوت إلا بعد الاشتراك في قنواتنا. يرجى الاشتراك من الأزرار بالأسفل ثم الضغط على 'تحقق من الاشتراك'."
-        await message.answer(sub_text, reply_markup=get_subscription_keyboard())
+        sub_text = "❌ **عذراً عزيزي!**\nلا يمكنك استخدام البوت إلا بعد الاشتراك في قنواتنا. يرجى الاشتراك من الأزرار بالأسفل ثم الضغط على 'تحقق من الاشتراك'."
+        await message.answer(sub_text, reply_markup=get_subscription_keyboard(), parse_mode=ParseMode.MARKDOWN)
         return
     
-    await message.answer(get_welcome_text(), reply_markup=MAIN_MENU)
+    await message.answer(get_welcome_text(), reply_markup=MAIN_MENU, parse_mode=ParseMode.MARKDOWN)
 
 @dp.callback_query(F.data == "check_sub")
 async def check_subscription_callback(callback: CallbackQuery):
     if await is_subscribed(callback.from_user.id):
         await callback.message.delete()
-        await callback.message.answer("✅ <b>تم التحقق بنجاح! شكراً لاشتراكك.</b>")
-        await callback.message.answer(get_welcome_text(), reply_markup=MAIN_MENU)
+        await callback.message.answer("✅ **تم التحقق بنجاح! شكراً لاشتراكك.**", parse_mode=ParseMode.MARKDOWN)
+        await callback.message.answer(get_welcome_text(), reply_markup=MAIN_MENU, parse_mode=ParseMode.MARKDOWN)
     else:
         await callback.answer("❌ لم تقم بالاشتراك في جميع القنوات، اشترك ثم حاول مجدداً!", show_alert=True)
 
@@ -100,16 +100,16 @@ async def show_about(message: Message):
         "• جلب الوصف (الكابشن) الأصلي المرفق مع المقطع.\n"
         "• سرعة فائقة في التحميل وإرسال الفيديو."
     )
-    await message.answer(about_text)
+    await message.answer(about_text, parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(F.text == "📞 تواصل مع المطور")
 async def contact_developer(message: Message):
     dev_text = (
-        "👨‍💻 <b>للتواصل مع مطور البوت:</b>\n\n"
+        "👨‍💻 **للتواصل مع مطور البوت:**\n\n"
         "لأي استفسارات، اقتراحات، أو الإبلاغ عن مشكلة، يمكنك مراسلتي عبر المعرف التالي:\n"
         "👉 @no3zzz" 
     )
-    await message.answer(dev_text)
+    await message.answer(dev_text, parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(F.text == "🌟 إرسال هدية (نجوم) 🌟")
 async def show_stars_options(message: Message):
@@ -138,23 +138,11 @@ async def pre_checkout_handler(pre_checkout_query: PreCheckoutQuery):
 async def successful_payment_handler(message: Message):
     await message.answer("❤️ شكراً جزيلاً لك على دعمك وهديتك القيمة!")
 
-# محرك احتياطي باستخدام yt-dlp في حال حظر السيرفر
-def download_with_ytdlp(url: str, filename: str):
-    ydl_opts = {
-        'outtmpl': filename,
-        'format': 'best[ext=mp4]/best',
-        'quiet': True,
-        'no_warnings': True,
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        return info.get('description') or info.get('title') or "تحميل ناجح 🚀"
-
 @dp.message(F.text)
 async def download_tiktok(message: Message):
     if not await is_subscribed(message.from_user.id):
-        sub_text = "❌ <b>عذراً!</b> لا يمكنك التحميل قبل الاشتراك في القنوات:"
-        await message.answer(sub_text, reply_markup=get_subscription_keyboard())
+        sub_text = "❌ **عذراً!** لا يمكنك التحميل قبل الاشتراك في القنوات:"
+        await message.answer(sub_text, reply_markup=get_subscription_keyboard(), parse_mode=ParseMode.MARKDOWN)
         return
 
     url = (message.text or "").strip()
@@ -165,89 +153,59 @@ async def download_tiktok(message: Message):
         return
 
     status = await message.answer("⏳ جارٍ التحميل...")
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-    }
-
-    # المحاولة الأولى: عبر TikWM API
     try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Referer": "https://www.tikwm.com/"
+        }
         async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.post("https://www.tikwm.com/api/", data={"url": url, "hd": 1}, timeout=20) as resp:
+            async with session.post("https://www.tikwm.com/api/", data={"url": url}, timeout=25) as resp:
                 data = await resp.json(content_type=None)
+                if data and data.get("code") == 0 and data.get("data"):
+                    item = data["data"]
+                    title = item.get("title", "تحميل ناجح 🚀")
+                    images = item.get("images", [])
+                    video_url = item.get("play") or item.get("wmplay") or ""
+                    music_url = item.get("music") or ""
 
-            if data and data.get("code") == 0 and data.get("data"):
-                item = data["data"]
-                title = item.get("title") or "تحميل ناجح 🚀"
-                images = item.get("images", [])
-                video_url = item.get("play") or item.get("wmplay") or ""
-                music_url = item.get("music") or ""
+                    if video_url.startswith("/"):
+                        video_url = f"https://www.tikwm.com{video_url}"
+                    if music_url.startswith("/"):
+                        music_url = f"https://www.tikwm.com{music_url}"
 
-                if video_url.startswith("/"):
-                    video_url = f"https://www.tikwm.com{video_url}"
-                if music_url.startswith("/"):
-                    music_url = f"https://www.tikwm.com{music_url}"
-
-                if images:
-                    await status.edit_text("📸 جارٍ إرسال الصور...")
-                    media_group = [
-                        InputMediaPhoto(media=img, caption=title[:1024] if i == 0 else None, parse_mode=None)
-                        for i, img in enumerate(images[:10])
-                    ]
-                    await message.answer_media_group(media_group)
-                    if music_url:
-                        async with session.get(music_url, timeout=30) as m_resp:
-                            if m_resp.status == 200:
-                                audio_bytes = await m_resp.read()
-                                await message.answer_audio(
-                                    audio=BufferedInputFile(audio_bytes, filename="audio.mp3"),
-                                    caption="🎵 الصوت المصاحب للصور"
-                                )
+                    if images:
+                        await status.edit_text("📸 جارٍ إرسال الصور...")
+                        media_group = [InputMediaPhoto(media=img, caption=title[:1024] if i == 0 else None, parse_mode=None) for i, img in enumerate(images[:10])]
+                        await message.answer_media_group(media_group)
+                        if music_url:
+                            try:
+                                await message.answer_audio(audio=music_url, caption="🎵 الصوت المصاحب للصور")
+                            except Exception:
+                                async with session.get(music_url, timeout=25) as m_resp:
+                                    if m_resp.status == 200:
+                                        audio_bytes = await m_resp.read()
+                                        await message.answer_audio(audio=BufferedInputFile(audio_bytes, filename="audio.mp3"), caption="🎵 الصوت المصاحب للصور")
+                    elif video_url:
+                        await status.edit_text("🎥 جارٍ إرسال الفيديو...")
+                        try:
+                            await message.answer_video(video=video_url, caption=title[:1024], parse_mode=None, supports_streaming=True)
+                        except Exception:
+                            async with session.get(video_url, timeout=45) as v_resp:
+                                if v_resp.status == 200:
+                                    video_bytes = await v_resp.read()
+                                    await message.answer_video(video=BufferedInputFile(video_bytes, filename="tiktok.mp4"), caption=title[:1024], parse_mode=None, supports_streaming=True)
+                                else:
+                                    raise Exception("Failed to fetch video stream")
+                    else:
+                        await status.edit_text("❌ لم يتم العثور على وسائط.")
+                        return
                     await status.delete()
-                    return
-
-                elif video_url:
-                    await status.edit_text("🎥 جارٍ رفع الفيديو...")
-                    async with session.get(video_url, timeout=45) as v_resp:
-                        if v_resp.status == 200:
-                            video_bytes = await v_resp.read()
-                            await message.answer_video(
-                                video=BufferedInputFile(video_bytes, filename="tiktok.mp4"),
-                                caption=title[:1024],
-                                parse_mode=None,
-                                supports_streaming=True
-                            )
-                            await status.delete()
-                            return
+                else:
+                    await status.edit_text("❌ تعذّر جلب البيانات. تأكد من أن الرابط صحيح وأن المقطع عام.")
     except Exception as e:
-        log.warning(f"TikWM failed, trying fallback: {e}")
+        log.error(f"Download error: {e}")
+        await status.edit_text("❌ حدث خطأ أثناء التحميل.")
 
-    # المحاولة الثانية (الاحتياطية): عبر yt-dlp مباشرة من السيرفر
-    temp_file = f"video_{message.from_user.id}_{message.message_id}.mp4"
-    try:
-        await status.edit_text("⚡ جارٍ التحميل عبر السيرفر البديل...")
-        title = await asyncio.to_thread(download_with_ytdlp, url, temp_file)
-        if os.path.exists(temp_file):
-            with open(temp_file, "rb") as f:
-                video_bytes = f.read()
-            await message.answer_video(
-                video=BufferedInputFile(video_bytes, filename="tiktok.mp4"),
-                caption=title[:1024],
-                parse_mode=None,
-                supports_streaming=True
-            )
-            await status.delete()
-            return
-    except Exception as e2:
-        log.error(f"Fallback yt-dlp error: {e2}")
-        await status.edit_text(f"⚠️ تعذّر التحميل. سبب الخطأ التقني:\n<code>{e2}</code>")
-    finally:
-        if os.path.exists(temp_file):
-            try:
-                os.remove(temp_file)
-            except Exception:
-                pass
-
-# --- جزء السيرفر الوهمي لإرضاء منصة Render ---
 async def handle_ping(request):
     return web.Response(text="Bot is running 24/7!")
 
