@@ -1,4 +1,4 @@
-import os
+imimport os
 import aiohttp
 from aiohttp import web
 import asyncio
@@ -40,7 +40,6 @@ STARS_KEYBOARD = InlineKeyboardMarkup(
     ]
 )
 
-# أزرار الاشتراك بأسماء القنوات
 def get_subscription_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -159,7 +158,13 @@ async def download_tiktok(message: Message):
             "Referer": "https://www.tikwm.com/"
         }
         async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.post("https://www.tikwm.com/api/", data={"url": url}, timeout=25) as resp:
+            video_url = ""
+            title = "تحميل ناجح 🚀"
+            images = []
+            music_url = ""
+
+            # المحاولة الأولى عبر TikWM
+            async with session.post("https://www.tikwm.com/api/", data={"url": url}, timeout=20) as resp:
                 data = await resp.json(content_type=None)
                 if data and data.get("code") == 0 and data.get("data"):
                     item = data["data"]
@@ -168,40 +173,47 @@ async def download_tiktok(message: Message):
                     video_url = item.get("play") or item.get("wmplay") or ""
                     music_url = item.get("music") or ""
 
-                    if video_url.startswith("/"):
-                        video_url = f"https://www.tikwm.com{video_url}"
-                    if music_url.startswith("/"):
-                        music_url = f"https://www.tikwm.com{music_url}"
+            # المحاولة الاحتياطية عبر Cobalt API لو فشل الأول
+            if not video_url and not images:
+                async with session.post(
+                    "https://api.cobalt.tools/api/json",
+                    json={"url": url},
+                    headers={"Accept": "application/json", "Content-Type": "application/json"},
+                    timeout=20
+                ) as c_resp:
+                    c_data = await c_resp.json(content_type=None)
+                    if c_data and c_data.get("status") in ("stream", "redirect", "picker"):
+                        video_url = c_data.get("url") or (c_data.get("picker", [{}])[0].get("url") if c_data.get("picker") else "")
 
-                    if images:
-                        await status.edit_text("📸 جارٍ إرسال الصور...")
-                        media_group = [InputMediaPhoto(media=img, caption=title[:1024] if i == 0 else None, parse_mode=None) for i, img in enumerate(images[:10])]
-                        await message.answer_media_group(media_group)
-                        if music_url:
-                            try:
-                                await message.answer_audio(audio=music_url, caption="🎵 الصوت المصاحب للصور")
-                            except Exception:
-                                async with session.get(music_url, timeout=25) as m_resp:
-                                    if m_resp.status == 200:
-                                        audio_bytes = await m_resp.read()
-                                        await message.answer_audio(audio=BufferedInputFile(audio_bytes, filename="audio.mp3"), caption="🎵 الصوت المصاحب للصور")
-                    elif video_url:
-                        await status.edit_text("🎥 جارٍ إرسال الفيديو...")
-                        try:
-                            await message.answer_video(video=video_url, caption=title[:1024], parse_mode=None, supports_streaming=True)
-                        except Exception:
-                            async with session.get(video_url, timeout=45) as v_resp:
-                                if v_resp.status == 200:
-                                    video_bytes = await v_resp.read()
-                                    await message.answer_video(video=BufferedInputFile(video_bytes, filename="tiktok.mp4"), caption=title[:1024], parse_mode=None, supports_streaming=True)
-                                else:
-                                    raise Exception("Failed to fetch video stream")
-                    else:
-                        await status.edit_text("❌ لم يتم العثور على وسائط.")
-                        return
-                    await status.delete()
-                else:
-                    await status.edit_text("❌ تعذّر جلب البيانات. تأكد من أن الرابط صحيح وأن المقطع عام.")
+            if video_url or images:
+                if video_url.startswith("/"):
+                    video_url = f"https://www.tikwm.com{video_url}"
+                if music_url.startswith("/"):
+                    music_url = f"https://www.tikwm.com{music_url}"
+
+                if images:
+                    await status.edit_text("📸 جارٍ إرسال الصور...")
+                    media_group = [InputMediaPhoto(media=img, caption=title[:1024] if i == 0 else None, parse_mode=None) for i, img in enumerate(images[:10])]
+                    await message.answer_media_group(media_group)
+                    if music_url:
+                        async with session.get(music_url, timeout=20) as m_resp:
+                            if m_resp.status == 200:
+                                audio_bytes = await m_resp.read()
+                                await message.answer_audio(audio=BufferedInputFile(audio_bytes, filename="audio.mp3"), caption="🎵 الصوت المصاحب للصور")
+                elif video_url:
+                    await status.edit_text("🎥 جارٍ إرسال الفيديو...")
+                    try:
+                        await message.answer_video(video=video_url, caption=title[:1024], parse_mode=None, supports_streaming=True)
+                    except Exception:
+                        async with session.get(video_url, timeout=35) as v_resp:
+                            if v_resp.status == 200:
+                                video_bytes = await v_resp.read()
+                                await message.answer_video(video=BufferedInputFile(video_bytes, filename="tiktok.mp4"), caption=title[:1024], parse_mode=None, supports_streaming=True)
+                            else:
+                                raise Exception("Failed to fetch video stream")
+                await status.delete()
+            else:
+                await status.edit_text("❌ تعذّر جلب البيانات. تأكد من أن الرابط صحيح وأن المقطع عام.")
     except Exception as e:
         log.error(f"Download error: {e}")
         await status.edit_text("❌ حدث خطأ أثناء التحميل.")
@@ -228,4 +240,5 @@ async def main():
     )
 
 if __name__ == "__main__":
+    asyncio.run(main())__main__":
     asyncio.run(main())
